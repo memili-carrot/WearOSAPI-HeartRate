@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.example.wearosheart"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.wearosheart"
         minSdk = 30
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -25,42 +25,29 @@ android {
             )
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-
     kotlinOptions {
         jvmTarget = "11"
     }
-
     buildFeatures {
         compose = true
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.3"
     }
 }
 
 dependencies {
-
-    // Wear OS Compose
-    implementation("androidx.wear.compose:compose-material:1.2.0-alpha04")
-    implementation("androidx.wear.compose:compose-foundation:1.2.0-alpha04")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.4.3")
-    implementation("androidx.compose.ui:ui-tooling:1.4.3")
-
-    // 기본 Compose 라이브러리
-    implementation("androidx.activity:activity-compose:1.7.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.1")
-
-    // Splash Screen
-    implementation("androidx.core:core-splashscreen:1.0.1")
-
-    // 기타 Wear OS 관련 라이브러리
     implementation(libs.play.services.wearable)
+    implementation(platform(libs.compose.bom))
+    implementation(libs.ui)
+    implementation(libs.ui.graphics)
+    implementation(libs.ui.tooling.preview)
+    implementation(libs.compose.material)
+    implementation(libs.compose.foundation)
+    implementation(libs.wear.tooling.preview)
+    implementation(libs.activity.compose)
+    implementation(libs.core.splashscreen)
     implementation(libs.tiles)
     implementation(libs.tiles.material)
     implementation(libs.tiles.tooling.preview)
@@ -68,7 +55,11 @@ dependencies {
     implementation(libs.horologist.tiles)
     implementation(libs.watchface.complications.data.source.ktx)
 
-    // 테스트 및 디버그
+    // 추가: 심박수 센서 관련 의존성
+    implementation("androidx.wear:wear:1.3.0") // Wear OS API 지원
+    implementation("androidx.wear.watchface:watchface-complications-data-source:1.2.1")
+    implementation("androidx.wear.watchface:watchface-complications-data:1.2.1")
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)

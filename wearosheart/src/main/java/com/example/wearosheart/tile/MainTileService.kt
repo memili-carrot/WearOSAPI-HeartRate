@@ -1,6 +1,10 @@
 package com.example.wearosheart.tile
 
 import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import androidx.wear.protolayout.ColorBuilders.argb
 import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.ResourceBuilders
@@ -11,75 +15,89 @@ import androidx.wear.protolayout.material.Typography
 import androidx.wear.protolayout.material.layouts.PrimaryLayout
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
-import androidx.wear.tiles.tooling.preview.Preview
-import androidx.wear.tiles.tooling.preview.TilePreviewData
-import androidx.wear.tooling.preview.devices.WearDevices
-import com.google.android.horologist.annotations.ExperimentalHorologistApi
-import com.google.android.horologist.tiles.SuspendingTileService
+import androidx.wear.tiles.TileService
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import java.util.concurrent.atomic.AtomicReference
 
-private const val RESOURCES_VERSION = "0"
+private const val RESOURCES_VERSION = "1"
 
 /**
- * Skeleton for a tile with no images.
+ * Tile service that displays real-time heart rate data.
  */
-@OptIn(ExperimentalHorologistApi::class)
-class MainTileService : SuspendingTileService() {
+class MainTileService : TileService(), SensorEventListener {
 
-    override suspend fun resourcesRequest(
-        requestParams: RequestBuilders.ResourcesRequest
-    ) = resources(requestParams)
+    private lateinit var sensorManager: SensorManager
+    private var heartRateSensor: Sensor? = null
+    private val heartRateValue = AtomicReference("Fetching...")
 
-    override suspend fun tileRequest(
-        requestParams: RequestBuilders.TileRequest
-    ) = tile(requestParams, this)
-}
+    override fun onCreate() {
+        super.onCreate()
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        heartRateSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+        heartRateSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+    }
 
-private fun resources(
-    requestParams: RequestBuilders.ResourcesRequest
-): ResourceBuilders.Resources {
-    return ResourceBuilders.Resources.Builder()
-        .setVersion(RESOURCES_VERSION)
-        .build()
-}
+    override fun onDestroy() {
+        super.onDestroy()
+        sensorManager.unregisterListener(this)
+    }
 
-private fun tile(
-    requestParams: RequestBuilders.TileRequest,
-    context: Context,
-): TileBuilders.Tile {
-    val singleTileTimeline = TimelineBuilders.Timeline.Builder()
-        .addTimelineEntry(
-            TimelineBuilders.TimelineEntry.Builder()
-                .setLayout(
-                    LayoutElementBuilders.Layout.Builder()
-                        .setRoot(tileLayout(requestParams, context))
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
+        return Futures.immediateFuture(
+            TileBuilders.Tile.Builder()
+                .setResourcesVersion(RESOURCES_VERSION)
+                .setTileTimeline(
+                    TimelineBuilders.Timeline.Builder()
+                        .addTimelineEntry(
+                            TimelineBuilders.TimelineEntry.Builder()
+                                .setLayout(
+                                    LayoutElementBuilders.Layout.Builder()
+                                        .setRoot(tileLayout(requestParams, this))
+                                        .build()
+                                )
+                                .build()
+                        )
                         .build()
                 )
                 .build()
         )
-        .build()
+    }
 
-    return TileBuilders.Tile.Builder()
-        .setResourcesVersion(RESOURCES_VERSION)
-        .setTileTimeline(singleTileTimeline)
-        .build()
-}
-
-private fun tileLayout(
-    requestParams: RequestBuilders.TileRequest,
-    context: Context,
-): LayoutElementBuilders.LayoutElement {
-    return PrimaryLayout.Builder(requestParams.deviceConfiguration)
-        .setResponsiveContentInsetEnabled(true)
-        .setContent(
-            Text.Builder(context, "Hello World!")
-                .setColor(argb(Colors.DEFAULT.onSurface))
-                .setTypography(Typography.TYPOGRAPHY_CAPTION1)
+    override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> {
+        return Futures.immediateFuture(
+            ResourceBuilders.Resources.Builder()
+                .setVersion(RESOURCES_VERSION)
                 .build()
-        ).build()
-}
+        )
+    }
 
-@Preview(device = WearDevices.SMALL_ROUND)
-@Preview(device = WearDevices.LARGE_ROUND)
-fun tilePreview(context: Context) = TilePreviewData(::resources) {
-    tile(it, context)
+    private fun tileLayout(
+        requestParams: RequestBuilders.TileRequest,
+        context: Context,
+    ): LayoutElementBuilders.LayoutElement {
+        return PrimaryLayout.Builder(requestParams.deviceConfiguration)
+            .setResponsiveContentInsetEnabled(true)
+            .setContent(
+                Text.Builder(context, "Heart Rate: ${getHeartRateData()}")
+                    .setColor(argb(Colors.DEFAULT.onSurface))
+                    .setTypography(Typography.TYPOGRAPHY_TITLE2)
+                    .build()
+            ).build()
+    }
+
+    private fun getHeartRateData(): String {
+        return heartRateValue.get()
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        event?.let {
+            val value = "%.0f BPM".format(it.values[0]) // 소수점 없이 정수로 변환
+            heartRateValue.set(value)
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 }
